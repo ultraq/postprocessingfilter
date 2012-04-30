@@ -1,6 +1,5 @@
+
 package nz.net.ultraq.web.filter;
-
-
 
 import java.io.ByteArrayOutputStream;
 
@@ -9,7 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 
 /**
- * Response wrapper to capture file resources.
+ * Response wrapper to capture resources.
  * 
  * @author Emanuel Rabina
  */
@@ -29,20 +28,20 @@ public class ResourceResponseWrapper extends HttpServletResponseWrapper {
 	}
 
 	/**
-	 * Return the resource file bytes.
+	 * Return the resource bytes.
 	 * 
-	 * @return Output stream containing the resource file.
+	 * @return Output stream containing the resource.
 	 */
-	public ByteArrayOutputStream getResourceFileBytes() {
+	public ByteArrayOutputStream getResourceBytes() {
 
 		return bos;
 	}
 
 	/**
 	 * Return an output stream different from that of the wrapped response to
-	 * capture the resource file.
+	 * capture the resource.
 	 * 
-	 * @return Output stream for the resource file.
+	 * @return Output stream for the resource.
 	 */
 	@Override
 	public ServletOutputStream getOutputStream() {

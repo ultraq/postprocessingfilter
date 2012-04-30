@@ -1,9 +1,7 @@
+
 package nz.net.ultraq.web.filter;
 
-
-
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.HashMap;
 
 import javax.servlet.Filter;
@@ -15,15 +13,27 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Parent class for any filter that does post-processing on file resources found
- * on a Java web application.  Enforces a common pattern for child filters, and
- * includes a resource cache so that unecessary processing can be avoided.
+ * Parent class for any filter that does post-processing on resources found in a
+ * Java web application.  Includes a resource cache to prevent unecessary
+ * post-processing.
  * 
  * @author Emanuel Rabina
+ * @param <R> Specific resource type.
  */
-public abstract class ResourceProcessingFilter implements Filter {
+public abstract class ResourceProcessingFilter<R extends Resource> implements Filter {
 
-	private final HashMap<String,Resource> resourcecache = new HashMap<>();
+	private final HashMap<String,R> resourcecache = new HashMap<>();
+
+	/**
+	 * Given these bits and pieces, build a resource object that can be used for
+	 * processing.
+	 * 
+	 * @param path
+	 * @param resourcecontent
+	 * @return Resource.
+	 * @throws IOException
+	 */
+	protected abstract R buildResource(String path, String resourcecontent) throws IOException;
 
 	/**
 	 * Allows a resource request to first go through to the application server,
@@ -63,10 +73,12 @@ public abstract class ResourceProcessingFilter implements Filter {
 		String url = urlbuilder.toString();
 
 		// Create a new processing result
-		Resource resource;
+		R resource;
 		if (!resourcecache.containsKey(url) || resourcecache.get(url).isModified()) {
-			resource = doProcessing(null, null);
-			resourcecache.put(url, resource);
+			resource = resourcecache.containsKey(url) ? resourcecache.get(url) :
+					buildResource(request.getServletContext().getRealPath(request.getServletPath()),
+							new String(resourceresponsewrapper.getResourceBytes().toByteArray()));
+			resourcecache.put(url, doProcessing(resource));
 		}
 		// Use the existing result in cache
 		else {
@@ -81,9 +93,10 @@ public abstract class ResourceProcessingFilter implements Filter {
 	/**
 	 * Perform post-processing on the given resource.
 	 * 
-	 * @param request
-	 * @param resourcecontent String contents of the resource.
+	 * @param resource
 	 * @return A processed version of the resource.
+	 * @throws IOException
+	 * @throws ServletException
 	 */
-	protected abstract Resource doProcessing(HttpServletRequest request, StringReader resourcecontent);
+	protected abstract R doProcessing(R resource) throws IOException, ServletException;
 }

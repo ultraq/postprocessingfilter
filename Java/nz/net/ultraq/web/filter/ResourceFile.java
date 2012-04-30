@@ -1,6 +1,5 @@
+
 package nz.net.ultraq.web.filter;
-
-
 
 import java.io.IOException;
 import java.nio.file.FileSystem;
@@ -23,9 +22,9 @@ public class ResourceFile implements Resource {
 	protected static final ExecutorService resourceWatchingExecutorService = Executors.newCachedThreadPool();
 
 	protected final Path resourcefile;
-	protected boolean modified;
 	protected String sourcecontent;
 	protected String processedcontent;
+	protected boolean modified;
 
 	/**
 	 * Constructor, get a handle to the file on the given path and set up a
@@ -45,6 +44,30 @@ public class ResourceFile implements Resource {
 				modified = true;
 			}
 		});
+	}
+
+	/**
+	 * Constructor, same as {@link #ResourceFile(String)} but also sets the
+	 * content of the file from the response capture.
+	 * 
+	 * @param path			Path to the file on the file system.
+	 * @param sourcecontent Response wrapper used to capture the resource file.
+	 * @throws IOException If there was a problem registering the watch service.
+	 */
+	public ResourceFile(String path, String sourcecontent) throws IOException {
+
+		this(path);
+		this.sourcecontent = sourcecontent;
+	}
+
+	/**
+	 * Return the resource's filename.
+	 * 
+	 * @return Resource's filename.
+	 */
+	public String getFilename() {
+
+		return resourcefile.getFileName().toString();
 	}
 
 	/**
@@ -72,6 +95,16 @@ public class ResourceFile implements Resource {
 	public boolean isModified() {
 
 		return modified;
+	}
+
+	/**
+	 * Set the processed content of the resource.
+	 * 
+	 * @param processedcontent
+	 */
+	public void setProcessedContent(String processedcontent) {
+
+		this.processedcontent = processedcontent;
 	}
 
 	/**

@@ -1,6 +1,5 @@
+
 package nz.net.ultraq.web.filter;
-
-
 
 /**
  * Representation of a resource in both its initial and processed states.
