@@ -9,8 +9,10 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Representation of a resource in both its initial and processed states.
@@ -19,12 +21,14 @@ import java.util.concurrent.Executors;
  */
 public class Resource {
 
-	protected static final ExecutorService resourceWatchingExecutorService = Executors.newCachedThreadPool();
-
 	protected final Path resource;
 	protected String sourcecontent;
 	protected String processedcontent;
 	protected boolean modified;
+
+	private static final ExecutorService resourceWatchingExecutorService = Executors.newCachedThreadPool();
+	private static final ArrayList<WatchService> watchservices = new ArrayList<>();
+	private static final ArrayList<WatchKey> watchkeys = new ArrayList<>();
 
 	/**
 	 * Constructor, get a handle to the resource on the given path and set up a
@@ -108,6 +112,40 @@ public class Resource {
 	}
 
 	/**
+	 * Called by the post-processing filter on cleanup, stops all resource
+	 * watching threads.
+	 */
+	static void stopWatchServices() {
+
+		// Cancel all watch keys
+		for (WatchKey watchkey: watchkeys) {
+			watchkey.cancel();
+			watchkey.pollEvents();
+		}
+
+		// Close all watch services
+		for (WatchService watchservice: watchservices) {
+			try {
+				watchservice.close();
+			}
+			catch (IOException ex) {
+				// Do nothing with it
+			}
+		}
+
+		// Close all lingering modification threads
+		resourceWatchingExecutorService.shutdown();
+		try {
+			if (!resourceWatchingExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
+				resourceWatchingExecutorService.shutdownNow();
+			}
+		}
+		catch (InterruptedException ex) {
+			// Do nothing with it
+		}
+	}
+
+	/**
 	 * Register a 'file modified' watch service on the given resource, invoking
 	 * the callback if the file modification event has been triggered.
 	 * 
@@ -118,12 +156,14 @@ public class Resource {
 
 		Path resourcedir  = resource.getParent();
 		final WatchService watchservice = resource.getFileSystem().newWatchService();
-		resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
+		watchservices.add(watchservice);
+		watchkeys.add(resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY));
 
 		resourceWatchingExecutorService.submit(new Runnable() {
 			@Override
 			@SuppressWarnings("unchecked")
 			public void run() {
+				Thread.currentThread().setName("Resource modification listener - " + resource.getFileName());
 
 				try {
 					boolean valid = true;
@@ -136,7 +176,7 @@ public class Resource {
 
 							// Check if this modification event is for the resource we are watching
 							Path modifiedresource = ((WatchEvent<Path>)event).context();
-							if (modifiedresource.equals(resource)) {
+							if (modifiedresource.getFileName().equals(resource.getFileName())) {
 								modified = true;
 							}
 						}
