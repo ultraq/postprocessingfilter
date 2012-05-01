@@ -75,10 +75,10 @@ public abstract class ResourceProcessingFilter<R extends Resource> implements Fi
 		// Create a new processing result
 		R resource;
 		if (!resourcecache.containsKey(url) || resourcecache.get(url).isModified()) {
-			resource = resourcecache.containsKey(url) ? resourcecache.get(url) :
-					buildResource(request.getServletContext().getRealPath(request.getServletPath()),
-							new String(resourceresponsewrapper.getResourceBytes().toByteArray()));
-			resourcecache.put(url, doProcessing(resource));
+			resource = buildResource(request.getServletContext().getRealPath(request.getServletPath()),
+					new String(resourceresponsewrapper.getResourceBytes().toByteArray()));
+			doProcessing(resource);
+			resourcecache.put(url, resource);
 		}
 		// Use the existing result in cache
 		else {
@@ -94,9 +94,8 @@ public abstract class ResourceProcessingFilter<R extends Resource> implements Fi
 	 * Perform post-processing on the given resource.
 	 * 
 	 * @param resource
-	 * @return A processed version of the resource.
 	 * @throws IOException
 	 * @throws ServletException
 	 */
-	protected abstract R doProcessing(R resource) throws IOException, ServletException;
+	protected abstract void doProcessing(R resource) throws IOException, ServletException;
 }
