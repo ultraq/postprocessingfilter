@@ -38,7 +38,7 @@ public class Resource {
 		FileSystem filesystem = FileSystems.getDefault();
 		resource = filesystem.getPath(path);
 
-		watchResource(filesystem, resource, new ResourceModifiedCallback() {
+		watchResource(resource, new ResourceModifiedCallback() {
 			@Override
 			public void resourceModified() {
 				modified = true;
@@ -116,17 +116,15 @@ public class Resource {
 	/**
 	 * Register a 'file modified' watch service on the given resource, invoking
 	 * the callback if the file modification event has been triggered.
-	 * 
-	 * @param filesystem
 	 * @param resource
 	 * @param callback
+	 * 
 	 * @throws IOException If there was a problem registering the watch service.
 	 */
-	protected void watchResource(FileSystem filesystem, final Path resource,
-		final ResourceModifiedCallback callback) throws IOException {
+	protected void watchResource(final Path resource, final ResourceModifiedCallback callback) throws IOException {
 
 		Path resourcedir  = resource.getParent();
-		final WatchService watchservice = filesystem.newWatchService();
+		final WatchService watchservice = resource.getFileSystem().newWatchService();
 		resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
 
 		resourceWatchingExecutorService.submit(new Runnable() {
@@ -161,7 +159,7 @@ public class Resource {
 
 	/**
 	 * Callback to be notified of modification events when registered using
-	 * {@link Resource#watchResource(FileSystem, Path, ResourceModifiedCallback)}.
+	 * {@link Resource#watchResource(Path, ResourceModifiedCallback)}.
 	 */
 	protected static interface ResourceModifiedCallback {
 
