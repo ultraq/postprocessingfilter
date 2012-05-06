@@ -2,6 +2,7 @@
 package nz.net.ultraq.web.filter;
 
 import java.io.IOException;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -21,14 +22,13 @@ import java.util.concurrent.TimeUnit;
  */
 public class Resource {
 
+	private static final ExecutorService resourcewatchingexecutorservice = Executors.newCachedThreadPool();
+	private static final ArrayList<WatchService> watchservices = new ArrayList<>();
+
 	protected final Path resource;
 	protected String sourcecontent;
 	protected String processedcontent;
 	protected boolean modified;
-
-	private static final ExecutorService resourceWatchingExecutorService = Executors.newCachedThreadPool();
-	private static final ArrayList<WatchService> watchservices = new ArrayList<>();
-	private static final ArrayList<WatchKey> watchkeys = new ArrayList<>();
 
 	/**
 	 * Constructor, get a handle to the resource on the given path and set up a
@@ -117,12 +117,6 @@ public class Resource {
 	 */
 	static void stopWatchServices() {
 
-		// Cancel all watch keys
-		for (WatchKey watchkey: watchkeys) {
-			watchkey.cancel();
-			watchkey.pollEvents();
-		}
-
 		// Close all watch services
 		for (WatchService watchservice: watchservices) {
 			try {
@@ -134,10 +128,10 @@ public class Resource {
 		}
 
 		// Close all lingering modification threads
-		resourceWatchingExecutorService.shutdown();
+		resourcewatchingexecutorservice.shutdown();
 		try {
-			if (!resourceWatchingExecutorService.awaitTermination(5, TimeUnit.SECONDS)) {
-				resourceWatchingExecutorService.shutdownNow();
+			if (!resourcewatchingexecutorservice.awaitTermination(5, TimeUnit.SECONDS)) {
+				resourcewatchingexecutorservice.shutdownNow();
 			}
 		}
 		catch (InterruptedException ex) {
@@ -146,45 +140,58 @@ public class Resource {
 	}
 
 	/**
-	 * Register a 'file modified' watch service on the given resource, invoking
-	 * the callback if the file modification event has been triggered.
+	 * Watch the given resource for changes, causing this resource object to be
+	 * marked as 'modified' when the resource is modified.
 	 * 
-	 * @param resource
-	 * @throws IOException If there was a problem registering the watch service.
+	 * @param resourcefile
+	 * @throws IOException If there was a problem watching the resource.
 	 */
-	protected void watchResource(final Path resource) throws IOException {
+	protected void watchResource(final Path resourcefile) throws IOException {
 
-		Path resourcedir  = resource.getParent();
-		final WatchService watchservice = resource.getFileSystem().newWatchService();
+		final Path resourcedir = resourcefile.getParent();
+		final WatchService watchservice = resourcedir.getFileSystem().newWatchService();
 		watchservices.add(watchservice);
-		watchkeys.add(resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY));
+		resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
 
-		resourceWatchingExecutorService.submit(new Runnable() {
+		resourcewatchingexecutorservice.submit(new Runnable() {
 			@Override
 			@SuppressWarnings("unchecked")
 			public void run() {
-				Thread.currentThread().setName("Resource modification listener - " + resource.getFileName());
+				Thread.currentThread().setName("Resource modification listener for directory - " +
+						resourcedir.getFileName());
 
 				try {
-					boolean valid = true;
-					while (valid) {
+					while (true) {
 						WatchKey key = watchservice.take();
 						for (WatchEvent<?> event: key.pollEvents()) {
 							if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
 								continue;
 							}
 
-							// Check if this modification event is for the resource we are watching
-							Path modifiedresource = ((WatchEvent<Path>)event).context();
-							if (modifiedresource.getFileName().equals(resource.getFileName())) {
+							// Check if this modification event is for a resource we are watching
+							Path modifiedresource = ((WatchEvent<Path>)event).context().getFileName();
+							if (resourcefile.getFileName().equals(modifiedresource)) {
 								modified = true;
+
+								// Stop listening for modifications as a new resource will be created
+								// with new listeners to take the place of these ones
+								watchservice.close();
+								watchservices.remove(watchservice);
+								return;
 							}
 						}
-						valid = key.reset();
+						boolean valid = key.reset();
+						if (!valid) {
+							break;
+						}
 					}
 				}
+				// Do nothing on thread death/interruption events
 				catch (InterruptedException ex) {
-					return;
+				}
+				catch (IOException ex) {
+				}
+				catch (ClosedWatchServiceException ex) {
 				}
 			}
 		});
