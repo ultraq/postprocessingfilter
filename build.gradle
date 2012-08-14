@@ -1,0 +1,36 @@
+
+/**
+ * Gradle build script for the Post-Processing Filter project.  Creates the
+ * artifacts necessary to deploy to a Maven repository.
+ * 
+ * @author Emanuel Rabina
+ */
+
+apply plugin: 'java'
+apply from: 'https://raw.github.com/ultraq/gradle-support/master/java-support.gradle'
+apply plugin: 'maven'
+apply from: 'https://raw.github.com/ultraq/gradle-support/master/maven-support.gradle'
+
+//project.name        = 'Post-Processing Filter'
+project.description = 'Common code for all resource processing filters.'
+project.sourceCompatibility = '1.7'
+
+project.group    = 'nz.net.ultraq.web.filter'
+project.artifact = 'post-processing-filter'
+project.version  = '1.0.1'
+project.website  = "http://www.ultraq.net.nz/projects/${project.artifact}/"
+project.year     = '2012'
+
+project.author        = 'Emanuel Rabina'
+project.authorEmail   = 'emanuelrabina@gmail.com'
+project.authorWebsite = 'http://www.ultraq.net.nz/'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile(
+		'javax.servlet:javax.servlet-api:3.0.1'
+	)
+}
