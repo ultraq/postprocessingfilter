@@ -10,6 +10,7 @@ apply plugin: 'java'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/java-support.gradle'
 apply plugin: 'maven'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/maven-support.gradle'
+apply from: 'https://raw.github.com/ultraq/gradle-support/master/bundle.gradle'
 
 //project.name        = 'Post-Processing Filter'
 project.description = 'Common code for all resource processing filters.'
@@ -30,7 +31,16 @@ repositories {
 }
 
 dependencies {
-	compile(
-		'javax.servlet:javax.servlet-api:3.0.1'
-	)
+	compile 'javax.servlet:javax.servlet-api:3.0.1'
+}
+
+// Modify the pom generation so that it uses the 'provided' scope for the servlet API JARs
+def generatePom() {
+	repositories.mavenDeployer {
+		pom.withXml { XmlProvider xmlProvider ->
+			def xmlString = xmlProvider.asString()
+			def compileIndex = xmlString.indexOf('compile')
+			xmlString.replace(compileIndex, compileIndex + 7, 'provided')
+		}
+	}
 }

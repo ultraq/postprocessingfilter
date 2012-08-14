@@ -44,7 +44,7 @@ Changelog
 ---------
 
 ### 1.0.1
- - Switched from Ant to Gradle as a build tool.
+ - Added Gradle for builds and creating Maven artifacts.
  - Made project available from Maven Central.  Maven co-ordinates added to the
    [Installation](#installation) section.
 
