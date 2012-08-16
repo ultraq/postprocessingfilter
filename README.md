@@ -28,7 +28,7 @@ Add a dependency to your project with the following co-ordinates:
 
  - GroupId: `nz.net.ultraq.web.filter`
  - ArtifactId: `post-processing-filter`
- - Version: `1.0.1`
+ - Version: `1.0.2`
 
 
 Usage
@@ -42,6 +42,11 @@ so look there for examples of how to use this project.
 
 Changelog
 ---------
+
+### 1.0.2
+ - Set scope of javax.servlet-api dependency to 'provided'.
+ - Minor fixes from the updated [maven-support](https://github.com/ultraq/gradle-support)
+   Gradle script.
 
 ### 1.0.1
  - Added Gradle for builds and creating Maven artifacts.
