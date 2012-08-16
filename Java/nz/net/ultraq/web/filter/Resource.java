@@ -3,9 +3,8 @@ package nz.net.ultraq.web.filter;
 
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
@@ -24,6 +23,7 @@ public class Resource {
 
 	private static final ExecutorService resourcewatchingexecutorservice = Executors.newCachedThreadPool();
 	private static final ArrayList<WatchService> watchservices = new ArrayList<>();
+	private static boolean closed;
 
 	protected final Path resource;
 	protected String sourcecontent;
@@ -39,8 +39,7 @@ public class Resource {
 	 */
 	public Resource(String path) throws IOException {
 
-		FileSystem filesystem = FileSystems.getDefault();
-		resource = filesystem.getPath(path);
+		resource = Paths.get(path);
 		watchResource(resource);
 	}
 
@@ -115,7 +114,11 @@ public class Resource {
 	 * Called by the post-processing filter on cleanup, stops all resource
 	 * watching threads.
 	 */
-	static void stopWatchServices() {
+	static synchronized void stopWatchServices() {
+
+		if (closed) {
+			return;
+		}
 
 		// Close all watch services
 		for (WatchService watchservice: watchservices) {
@@ -137,6 +140,8 @@ public class Resource {
 		catch (InterruptedException ex) {
 			// Do nothing with it
 		}
+
+		closed = true;
 	}
 
 	/**
@@ -149,51 +154,53 @@ public class Resource {
 	protected void watchResource(final Path resourcefile) throws IOException {
 
 		final Path resourcedir = resourcefile.getParent();
-		final WatchService watchservice = resourcedir.getFileSystem().newWatchService();
-		watchservices.add(watchservice);
-		resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
 
-		resourcewatchingexecutorservice.submit(new Runnable() {
-			@Override
-			@SuppressWarnings("unchecked")
-			public void run() {
-				Thread.currentThread().setName("Resource modification listener for directory - " +
-						resourcedir.getFileName());
+		try (final WatchService watchservice = resourcedir.getFileSystem().newWatchService()) {
+			watchservices.add(watchservice);
+			resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
 
-				try {
-					while (true) {
-						WatchKey key = watchservice.take();
-						for (WatchEvent<?> event: key.pollEvents()) {
-							if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-								continue;
+			resourcewatchingexecutorservice.submit(new Runnable() {
+				@Override
+				@SuppressWarnings("unchecked")
+				public void run() {
+					Thread.currentThread().setName("Resource modification listener for directory - " +
+							resourcedir.getFileName());
+
+					try {
+						while (true) {
+							WatchKey key = watchservice.take();
+							for (WatchEvent<?> event: key.pollEvents()) {
+								if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
+									continue;
+								}
+
+								// Check if this modification event is for a resource we are watching
+								Path modifiedresource = ((WatchEvent<Path>)event).context().getFileName();
+								if (resourcefile.getFileName().equals(modifiedresource)) {
+									modified = true;
+
+									// Stop listening for modifications as a new resource will be created
+									// with new listeners to take the place of these ones
+									watchservice.close();
+									watchservices.remove(watchservice);
+									return;
+								}
 							}
-
-							// Check if this modification event is for a resource we are watching
-							Path modifiedresource = ((WatchEvent<Path>)event).context().getFileName();
-							if (resourcefile.getFileName().equals(modifiedresource)) {
-								modified = true;
-
-								// Stop listening for modifications as a new resource will be created
-								// with new listeners to take the place of these ones
-								watchservice.close();
-								watchservices.remove(watchservice);
-								return;
+							boolean valid = key.reset();
+							if (!valid) {
+								break;
 							}
-						}
-						boolean valid = key.reset();
-						if (!valid) {
-							break;
 						}
 					}
+					// Do nothing on thread death/interruption events
+					catch (InterruptedException ex) {
+					}
+					catch (IOException ex) {
+					}
+					catch (ClosedWatchServiceException ex) {
+					}
 				}
-				// Do nothing on thread death/interruption events
-				catch (InterruptedException ex) {
-				}
-				catch (IOException ex) {
-				}
-				catch (ClosedWatchServiceException ex) {
-				}
-			}
-		});
+			});
+		}
 	}
 }
