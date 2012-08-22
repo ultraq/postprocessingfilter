@@ -14,6 +14,7 @@ apply from: 'https://raw.github.com/ultraq/gradle-support/master/bundle.gradle'
 
 //project.name        = 'Post-Processing Filter'
 project.description = 'Common code for all resource processing filters.'
+project.archivesBaseName = 'post-processing-filter'
 project.sourceCompatibility = '1.7'
 
 project.group    = 'nz.net.ultraq.web.filter'
