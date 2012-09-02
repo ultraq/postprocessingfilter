@@ -9,7 +9,6 @@ import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
-import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -21,9 +20,24 @@ import java.util.concurrent.TimeUnit;
  */
 public class Resource {
 
-	private static final ExecutorService resourcewatchingexecutorservice = Executors.newCachedThreadPool();
-	private static final ArrayList<WatchService> watchservices = new ArrayList<>();
-	private static boolean closed;
+	private static final ExecutorService resourcewatchingservice = Executors.newCachedThreadPool();
+	static {
+		// Close all lingering modification threads on shutdown
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				resourcewatchingservice.shutdown();
+				try {
+					if (!resourcewatchingservice.awaitTermination(5, TimeUnit.SECONDS)) {
+						resourcewatchingservice.shutdownNow();
+					}
+				}
+				catch (InterruptedException ex) {
+					// Do nothing with it
+				}
+			}
+		});
+	}
 
 	protected final Path resource;
 	protected String sourcecontent;
@@ -35,9 +49,8 @@ public class Resource {
 	 * watch service so that changes to the resource can be monitored.
 	 * 
 	 * @param path Path to the resource.
-	 * @throws IOException If there was a problem registering the watch service.
 	 */
-	public Resource(String path) throws IOException {
+	public Resource(String path) {
 
 		resource = Paths.get(path);
 		watchResource(resource);
@@ -49,9 +62,8 @@ public class Resource {
 	 * 
 	 * @param path			Path to the file on the file system.
 	 * @param sourcecontent Response wrapper used to capture the resource file.
-	 * @throws IOException If there was a problem registering the watch service.
 	 */
-	public Resource(String path, String sourcecontent) throws IOException {
+	public Resource(String path, String sourcecontent) {
 
 		this(path);
 		this.sourcecontent = sourcecontent;
@@ -111,96 +123,52 @@ public class Resource {
 	}
 
 	/**
-	 * Called by the post-processing filter on cleanup, stops all resource
-	 * watching threads.
-	 */
-	static synchronized void stopWatchServices() {
-
-		if (closed) {
-			return;
-		}
-
-		// Close all watch services
-		for (WatchService watchservice: watchservices) {
-			try {
-				watchservice.close();
-			}
-			catch (IOException ex) {
-				// Do nothing with it
-			}
-		}
-
-		// Close all lingering modification threads
-		resourcewatchingexecutorservice.shutdown();
-		try {
-			if (!resourcewatchingexecutorservice.awaitTermination(5, TimeUnit.SECONDS)) {
-				resourcewatchingexecutorservice.shutdownNow();
-			}
-		}
-		catch (InterruptedException ex) {
-			// Do nothing with it
-		}
-
-		closed = true;
-	}
-
-	/**
 	 * Watch the given resource for changes, causing this resource object to be
 	 * marked as 'modified' when the resource is modified.
 	 * 
 	 * @param resourcefile
-	 * @throws IOException If there was a problem watching the resource.
 	 */
-	protected void watchResource(final Path resourcefile) throws IOException {
+	protected void watchResource(final Path resourcefile) {
 
-		final Path resourcedir = resourcefile.getParent();
+		resourcewatchingservice.submit(new Runnable() {
+			@Override
+			@SuppressWarnings("unchecked")
+			public void run() {
 
-		try (final WatchService watchservice = resourcedir.getFileSystem().newWatchService()) {
-			watchservices.add(watchservice);
-			resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
+				Path resourcedir = resourcefile.getParent();
+				Thread.currentThread().setName("Resource modification listener for directory - " +
+						resourcedir.getFileName());
 
-			resourcewatchingexecutorservice.submit(new Runnable() {
-				@Override
-				@SuppressWarnings("unchecked")
-				public void run() {
-					Thread.currentThread().setName("Resource modification listener for directory - " +
-							resourcedir.getFileName());
+				try (WatchService watchservice = resourcedir.getFileSystem().newWatchService()) {
+					resourcedir.register(watchservice, StandardWatchEventKinds.ENTRY_MODIFY);
 
-					try {
-						while (true) {
-							WatchKey key = watchservice.take();
-							for (WatchEvent<?> event: key.pollEvents()) {
-								if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
-									continue;
-								}
-
-								// Check if this modification event is for a resource we are watching
-								Path modifiedresource = ((WatchEvent<Path>)event).context().getFileName();
-								if (resourcefile.getFileName().equals(modifiedresource)) {
-									modified = true;
-
-									// Stop listening for modifications as a new resource will be created
-									// with new listeners to take the place of these ones
-									watchservice.close();
-									watchservices.remove(watchservice);
-									return;
-								}
+					while (true) {
+						WatchKey key = watchservice.take();
+						for (WatchEvent<?> event: key.pollEvents()) {
+							if (event.kind() == StandardWatchEventKinds.OVERFLOW) {
+								continue;
 							}
-							boolean valid = key.reset();
-							if (!valid) {
-								break;
+
+							// Check if this modification event is for a resource we are watching
+							Path modifiedresource = ((WatchEvent<Path>)event).context().getFileName();
+							if (resourcefile.getFileName().equals(modifiedresource)) {
+								modified = true;
+
+								// Stop listening for modifications as a new resource will be created
+								// with new listeners to take the place of these ones
+								return;
 							}
 						}
-					}
-					// Do nothing on thread death/interruption events
-					catch (InterruptedException ex) {
-					}
-					catch (IOException ex) {
-					}
-					catch (ClosedWatchServiceException ex) {
+						boolean valid = key.reset();
+						if (!valid) {
+							break;
+						}
 					}
 				}
-			});
-		}
+				// Do nothing on thread death/interruption events
+				catch (InterruptedException | IOException | ClosedWatchServiceException ex) {
+				}
+			}
+		});
 	}
 }
