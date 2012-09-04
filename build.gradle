@@ -19,7 +19,7 @@ project.sourceCompatibility = '1.7'
 
 project.group    = 'nz.net.ultraq.web.filter'
 project.artifact = 'post-processing-filter'
-project.version  = '1.0.2-SNAPSHOT'
+project.version  = '1.0.2'
 project.website  = "http://www.ultraq.net.nz/programming/${project.artifact}/"
 project.year     = '2012'
 
