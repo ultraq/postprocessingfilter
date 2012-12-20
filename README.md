@@ -6,6 +6,9 @@ Common code for a resource processing filter.  Has objects, an abstract filter,
 and a resource response wrapper to help manage, track, and cache post-processed
 resources in a Java web application.
 
+ - Current version: 1.0.2
+ - Release date: 4 September 2012
+
 
 Requirements
 ------------
