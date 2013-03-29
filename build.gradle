@@ -27,16 +27,16 @@ apply plugin: 'maven'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/maven-support.gradle'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/bundle.gradle'
 
-//project.name        = 'Post-Processing Filter'
+//project.name      = 'Post-Processing Filter'
 project.description = 'Common code for all resource processing filters.'
 project.archivesBaseName = 'post-processing-filter'
 project.sourceCompatibility = '1.7'
 
 project.group    = 'nz.net.ultraq.web.filter'
 project.artifact = 'post-processing-filter'
-project.version  = '1.0.2'
+project.version  = '1.0.3'
 project.year     = '2012'
 
 dependencies {
-	provided 'javax.servlet:javax.servlet-api:3.0.1'
+	compile('javax.servlet:javax.servlet-api:3.0.1', provided)
 }
