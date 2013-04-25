@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package nz.net.ultraq.web.filter;
+package nz.net.ultraq.postprocessing;
 
 import java.io.ByteArrayOutputStream;
 

@@ -26,15 +26,17 @@ apply from: 'https://raw.github.com/ultraq/gradle-support/master/java-support.gr
 apply plugin: 'maven'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/maven-support.gradle'
 apply from: 'https://raw.github.com/ultraq/gradle-support/master/bundle.gradle'
+apply plugin: 'eclipse'
+apply from: 'https://raw.github.com/ultraq/gradle-support/master/eclipse-support.gradle'
 
 //project.name      = 'Post-Processing Filter'
 project.description = 'Common code for all resource processing filters.'
 project.archivesBaseName = 'post-processing-filter'
 project.sourceCompatibility = '1.7'
 
-project.group    = 'nz.net.ultraq.web.filter'
+project.group    = 'nz.net.ultraq.postprocessing'
 project.artifact = 'post-processing-filter'
-project.version  = '1.0.3'
+project.version  = '1.1-SNAPSHOT'
 project.year     = '2012'
 
 dependencies {
