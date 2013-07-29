@@ -82,8 +82,8 @@ public abstract class ResourceProcessingFilter<R extends Resource> implements Fi
 		ResourceResponseWrapper resourceresponsewrapper = new ResourceResponseWrapper(response);
 		chain.doFilter(request, resourceresponsewrapper);
 
-		// Do nothing if file not modified
-		if (resourceresponsewrapper.getStatus() == HttpServletResponse.SC_NOT_MODIFIED) {
+		// Stop processing if not all good
+		if (resourceresponsewrapper.getStatus() != HttpServletResponse.SC_OK) {
 			return;
 		}
 
